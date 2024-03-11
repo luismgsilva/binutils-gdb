@@ -801,21 +801,56 @@ arc_opcode_hash_entry_iterator_next
 static void
 arc_insert_opcode (const struct arc_opcode *opcode)
 {
+  /* Holds the name of the opcode extracted from the "opcode"
+   * structure. */
   const char *name;
-  struct arc_opcode_hash_entry *entry;
   name = opcode->name;
+  /* Pointer to a structure which is used to represent an
+   * entry in the hash table. */
+  struct arc_opcode_hash_entry *entry;
 
+  /* Used to find an entry in the hash table "arc_opcode_hash"
+   * based on the opcode's name. */
   entry = str_hash_find (arc_opcode_hash, name);
   if (entry == NULL)
     {
+      /* If "entry" is "NULL", it means that the opcode is not
+       * already present in the hash table. In this case, a new
+       * entry is created using "XNEW". */
       entry = XNEW (struct arc_opcode_hash_entry);
       entry->count = 0;
       entry->opcode = NULL;
 
+      /* If the entry is created successfully (ie, "entry" is not "NULL"),
+       * the opcode is insrted into the hash table using "str_hash_insert".
+       * If insertion fails (ei, returns non-NULL), it means that there's
+       * already and entry with the same name, and an error is raised
+       * using "as_fatal". */
       if (str_hash_insert (arc_opcode_hash, name, entry, 0) != NULL)
 	as_fatal (_("duplicate %s"), name);
     }
 
+  /* The "XRESIZEVEC" is used to resize the memory block allocated for an array.
+   * - Initial Memory Allocation: Initially, the "entry->opcode" array
+   *   might be allocated with some initial size or set to "NULL"
+   *   if its empty.
+   *
+   * - Resizing: when a new opcode needs to be added to the array,
+   *   the code attempts to resize the memory block to accommodate
+   *   the new element.
+   *
+   * - Memory Reallocation: "XRESIZEVEC" function ensures that there's
+   *   enough space to add the new opcode. If there isn't enough space,
+   *   it allocates a new memory block with sufficient space to hold
+   *   the existing elements plus the new one.
+   *
+   * - Copy and Free: If the memory block needs to be reallocated,
+   *   the function copies the existing elements of the array into
+   *   a new memory block, and then frees the old memory block.
+   *
+   * - Update Pointers: After resizing, the pointer to the memory
+   *   block containing the array "entry->opcode" is updated to
+   *   point to the newly allocated memory block. */
   entry->opcode = XRESIZEVEC (const struct arc_opcode *, entry->opcode,
 			      entry->count + 1);
 
@@ -2687,9 +2722,19 @@ md_assemble (char *str)
 static void
 declare_register (const char *name, int number)
 {
+  /* New symbol for the register is created using "symbol_create".
+   * This function creates a symbol with the give name,
+   * associated with a specific section "reg_section",
+   * a fragment (in this case, "&zero_address_frag"),
+   * and a number "number" */
   symbolS *regS = symbol_create (name, reg_section,
 				 &zero_address_frag, number);
 
+  /* The newly created symbol for the register ("regS") is
+   * inserted into a hash tabe "arc_reg_hash" using the
+   * "str_hash_insert" function */
+  /* The hash table is used to store symbols associated with registers,
+   * allowing for efficient lookup by name. */
   if (str_hash_insert (arc_reg_hash, S_GET_NAME (regS), regS, 0) != NULL)
     as_fatal (_("duplicate %s"), name);
 }
@@ -2700,14 +2745,33 @@ static void
 declare_register_set (void)
 {
   int i;
+  /* Iterates over the range of general registers from 0 to 63 */
   for (i = 0; i < 64; ++i)
     {
+      /* Used to store the name of each register */
       char name[32];
 
+      /* The "sprintf" function is used to construct the register
+       * name. It uses the format "r%d", where "%d" is replaced
+       * with the current value of "i". This creates register names
+       * like "r0", "r1", ..., "r63". */
       sprintf (name, "r%d", i);
+
+      /* Once the register name is constructed, the function
+       * "declare_register" is called with the register name
+       * and its corresponding index ("i"). This function is
+       * responsible for declaring/registering each register
+       * symbol. */
       declare_register (name, i);
+      /* This condition checks if the least significant bit
+       * of "i" is zero, essentially checking if "i" is an even number. */
       if ((i & 0x01) == 0)
 	{
+	  /* If "i" is even, it constructs another register
+	   * name using "sprintf" in the format "r%dr%d",
+	   * where "%d" and "%d" are replaced with "i" and
+	   * "i+1" respectively. This creates pairs of registers
+	   * name like "r0r1", "r2r3", ..., "r62r63". (?) */
 	  sprintf (name, "r%dr%d", i, i+1);
 	  declare_register (name, i);
 	}
@@ -2861,6 +2925,13 @@ md_begin (void)
   declare_register ("pcl", 63);
 
   /* Initialize the last instructions.  */
+    /* The "arc_last_insns" array is initialized to all zeros
+     * using the "memset" function. This array stores
+     * information about the last instructions executed.
+     *
+     * The "memset" function sets the memory block starting from
+     * "&arc_last_insns[0]" with zeros, with a size of
+     * "sizeof(arc_last_insns)" */
   memset (&arc_last_insns[0], 0, sizeof (arc_last_insns));
 
   /* Aux register declaration.  */
@@ -2870,13 +2941,19 @@ md_begin (void)
   unsigned int i;
   for (i = 0; i < arc_num_aux_regs; i++, auxr++)
     {
+      /* Checks whether the auxiliary register belongs
+       * to the selected CPU flags */
       if (!(auxr->cpu & selected_cpu.flags))
 	continue;
 
+      /* If the auxiliary register has a subclass and
+       * the CPU supports that subclass, it continues
+       * to the next iteration of the loop. */
       if ((auxr->subclass != NONE)
 	  && !check_cpu_feature (auxr->subclass))
 	continue;
 
+      /* The auxiliary register is inserted into the hash table. */
       if (str_hash_insert (arc_aux_hash, auxr->name, auxr, 0) != 0)
 	as_fatal (_("duplicate %s"), auxr->name);
     }

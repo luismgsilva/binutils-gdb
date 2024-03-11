@@ -408,16 +408,49 @@ symbol_create (const char *name, segT segment, fragS *frag, valueT valu)
   symbolS *symbolP;
   size_t size;
 
+  /* Creates a preserved copy of the symbol name. This ensures
+   * that the symbol name is preserved throughout the
+   * symbol's lifetime, as it might be modified or
+   * deallocated otherwise. */
   preserved_copy_of_name = save_symbol_name (name);
 
+  /* Memory is allocated for the symbol using the
+   * "obstack_alloc" (see "notes_alloc" function) function.
+   * The size of the memory block allocated is calclated based
+   * on the size of "symbolS" and "struct xsymbol".
+   * Both "symbolS" and "struct xsymbol" are part of the
+   * symbol structure.
+   *
+   * "symbolS likely represents the main data structure for
+   * a symbol, while "struct xsymbol" might contain additional
+   * extended information about the symbol (?). */
   size = sizeof (symbolS) + sizeof (struct xsymbol);
+
+  /* Utility functions to allocate and duplicate memory on the notes
+   * obstack, each like the corresponding function without "notes_"
+   * prefix.  All of these exit on an allocation failure.
+
+   * void *
+   * notes_alloc (size_t size)
+   *  {
+   *   return obstack_alloc (&notes, size);
+   *  }
+   */
   symbolP = notes_alloc (size);
 
   /* symbol must be born in some fixed state.  This seems as good as any.  */
+  /* The memory block is initialized with zeroes using "memset"
+   * to ensure that the symbol starts in a known state. */
   memset (symbolP, 0, size);
+  /* The preserved copy of the symbol name is assigned to the "name"
+   * field of the symbol. */
   symbolP->name = preserved_copy_of_name;
+  /* The "x" field of the symbol is set to point to the memory
+   * location immediately after the "symbolS" structure. */
   symbolP->x = (struct xsymbol *) (symbolP + 1);
 
+  /* "symbol_init" is called to initialie the remaining properties
+   * of the symbol, such as its segments, fragments, and value. */
   symbol_init (symbolP, preserved_copy_of_name, segment, frag, valu);
 
   return symbolP;

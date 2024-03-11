@@ -49,6 +49,9 @@ extern void htab_print_statistics (FILE *f, const char *name, htab_t table);
 
 /* Inline string hash table functions.  */
 
+/* "htab_t table": The hash table to which this tuple will belong.
+ * "const char *key": The key associated with the tuple.
+ * "const void *value": The value associated with the tuple. */
 static inline string_tuple_t *
 string_tuple_alloc (htab_t table, const char *key, const void *value)
 {
@@ -85,11 +88,37 @@ str_hash_delete (htab_t table, const char *key)
   htab_remove_elt (table, &needle);
 }
 
+
+/*
+ * "htab_t table" - This is a hash table where the key-value pair
+ * will be inserted.
+ * "const char *key" - The key to be inserted into the hash table.
+ * "const void *value" - The value associated with the key.
+ * "int replace" - A flag indicating whether to replace teh value
+ * if the key already exists in the hash table. */
 static inline void **
 str_hash_insert (htab_t table, const char *key, const void *value, int replace)
 {
+  /* A new "string_tuple_t" object is allocated to create a tuple
+   * containing the key and the value. */
   string_tuple_t *elt = string_tuple_alloc (table, key, value);
+
+  /* The "htab_insert" function is called to insert the newly
+   * created tuple into the hash table.
+   * It returns a pointer to the slot where the key-value
+   * pair is inserted. If the key already exists in the
+   * hash table and "replace" is set to false, it returns
+   * a pointer to the existing slot without replacing the value. */
   void **slot = htab_insert (table, elt, replace);
+
+  /* If a slot is returned (ei, insertion is successful,
+   * and its not replacing an existing value), and "replace"
+   * is false, and "table->free_f" is not NULL (indicating
+   * there is a free function specified for the hash table),
+   * then the memory allocated for the string tuple "elt" is
+   * freed. This conditional check ensures that memory is
+   * freed only if necessary and avoids calling the free function
+   * if its not provided. */
   if (slot && !replace && table->free_f)
     table->free_f (elt);
   return slot;

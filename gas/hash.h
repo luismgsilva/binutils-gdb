@@ -62,9 +62,9 @@ string_tuple_alloc (htab_t table, const char *key, const void *value)
 }
 
 static inline void *
-str_hash_find (htab_t table, const char *key)
+str_hash_find (htab_t table, const char *key) /* key = "fp" */
 {
-  string_tuple_t needle = { key, NULL };
+  string_tuple_t needle = { key, NULL }; /* needle = { "fp", NULL } */
   string_tuple_t *tuple = htab_find (table, &needle);
   return tuple != NULL ? (void *) tuple->value : NULL;
 }

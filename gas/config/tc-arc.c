@@ -1303,9 +1303,9 @@ parse_reloc_symbol (expressionS *resultP)
 /* Parse the arguments to an opcode.  */
 
 static int
-tokenize_arguments (char *str,
+tokenize_arguments (char *str, /* str = " fp,[sp,-4]" */
 		    expressionS *tok,
-		    int ntok)
+		    int ntok) /* ntok = 16 */
 {
   char *old_input_line_pointer;
   bool saw_comma = false;
@@ -1316,13 +1316,13 @@ tokenize_arguments (char *str,
   memset (tok, 0, sizeof (*tok) * ntok);
 
   /* Save and restore input_line_pointer around this function.  */
-  old_input_line_pointer = input_line_pointer;
-  input_line_pointer = str;
+  old_input_line_pointer = input_line_pointer; /* old_input_line_pointer = "" */
+  input_line_pointer = str; /* input_line_pointer = " fp,[sp,-4]" */
 
-  while (*input_line_pointer)
+  while (*input_line_pointer) /* [1] input_line_pointer = " fp,[sp,-4]" */
     {
-      SKIP_WHITESPACE ();
-      switch (*input_line_pointer)
+      SKIP_WHITESPACE (); /* [1] Remove extra spaces from start of "input_line_pointer" */
+      switch (*input_line_pointer) /* [1] input_line_pointer = "fp,[sp,-4]" */
 	{
 	case '\0':
 	  goto fini;
@@ -1401,33 +1401,36 @@ tokenize_arguments (char *str,
 	  /* Can be a register.  */
 	  ++input_line_pointer;
 	  /* Fall through.  */
-	default:
+	default:  /* [1] <- */
 
-	  if ((saw_arg && !saw_comma) || num_args == ntok)
+	  if ((saw_arg && !saw_comma) || num_args == ntok) /* [1] ((false && !false) || 0 == 16) => false */
 	    goto err;
 
-	  tok->X_op = O_absent;
-	  tok->X_md = O_absent;
+	  tok->X_op = O_absent; /* [1] A nonexistent expression.  */
+	  tok->X_md = O_absent; /* [1] A nonexistent expression.  */
 	  expression (tok);
 
 	  /* Legacy: There are cases when we have
 	     identifier@relocation_type, if it is the case parse the
 	     relocation type as well.  */
-	  if (*input_line_pointer == '@')
+	  if (*input_line_pointer == '@') /* [1] ("," == "@") = false */
 	    parse_reloc_symbol (tok);
 	  else
-	    resolve_register (tok);
-
+	    resolve_register (tok); /* [1] tok = {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = 27, X_op = O_register, X_unsigned = 1, X_extrabit = 0, X_md = 1} */
+      /* ^ Didn't do anything as tok->X_op is a O_register and not O_symbol */
 	  debug_exp (tok);
 
-	  if (tok->X_op == O_illegal
-	      || tok->X_op == O_absent
-	      || num_args == ntok)
+	  if (tok->X_op == O_illegal   /* [1] (O_register == O_illegal) = false */
+	      || tok->X_op == O_absent /* [1] (O_register == O_absent) = false */
+	      || num_args == ntok)     /* [1] (0 == 16) = false */
 	    goto err;
 
 	  saw_comma = false;
 	  saw_arg = true;
+    /* p *tok = {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = 27, X_op = O_register, X_unsigned = 1, X_extrabit = 0, X_md = 1} \
+     *                                                  X_add_number = 27 -> corresponds to the register r27 which is the "fp" register */
 	  tok++;
+    /* p *tok = {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = 0, X_op = O_illegal, X_unsigned = 0, X_extrabit = 0, X_md = 0} */
 	  num_args++;
 	  break;
 	}
@@ -1456,9 +1459,9 @@ tokenize_arguments (char *str,
 /* Parse the flags to a structure.  */
 
 static int
-tokenize_flags (const char *str,
+tokenize_flags (const char *str, /* str = ".a fp,[sp,-4]" */
 		struct arc_flags flags[],
-		int nflg)
+		int nflg) /* => MAX_INSN_FLGS */
 {
   char *old_input_line_pointer;
   bool saw_flg = false;
@@ -1469,51 +1472,54 @@ tokenize_flags (const char *str,
   memset (flags, 0, sizeof (*flags) * nflg);
 
   /* Save and restore input_line_pointer around this function.  */
-  old_input_line_pointer = input_line_pointer;
-  input_line_pointer = (char *) str;
+  old_input_line_pointer = input_line_pointer; /* old_input_line_pointer = "" */
+  input_line_pointer = (char *) str; /* input_line_pointer = ".a fp,[sp,-4]" */
 
   while (*input_line_pointer)
     {
-      switch (*input_line_pointer)
+      switch (*input_line_pointer) /* [1] ".a fp,[sp,-4]"  |  [2] "a fp,[sp,-4]" \
+                                    * [3] " fp,[sp,-4]" */
 	{
-	case ' ':
+	case ' ': /* [3] <- */
 	case '\0':
-	  goto fini;
+	  goto fini; /* [3] Leave the switch.*/
 
-	case '.':
-	  input_line_pointer++;
-	  if (saw_dot)
+	case '.': /* [1] <- */
+	  input_line_pointer++; /* [1] (Remove the dot) input_line_pointer = "a fp,[sp,-4]" */
+	  if (saw_dot) /* [1] false */
 	    goto err;
 	  saw_dot = true;
 	  saw_flg = false;
 	  break;
 
-	default:
-	  if (saw_flg && !saw_dot)
+	default: /* [2] <- */
+	  if (saw_flg && !saw_dot) /* [2] false && !true */
 	    goto err;
 
-	  if (num_flags >= nflg)
+	  if (num_flags >= nflg) /* [2] (0 >= 4) => false */
 	    goto err;
 
-	  flgnamelen = strspn (input_line_pointer,
-			       "abcdefghijklmnopqrstuvwxyz0123456789");
-	  if (flgnamelen > MAX_FLAG_NAME_LENGTH)
+	  flgnamelen = strspn (input_line_pointer, /* [2] input_line_pointer = "a fp,[sp,-4]" */
+			       "abcdefghijklmnopqrstuvwxyz0123456789"); /* [2] flgnamelen = 1 */
+	  if (flgnamelen > MAX_FLAG_NAME_LENGTH) /* [2] (1 > 7) => false */
 	    goto err;
 
-	  memcpy (flags->name, input_line_pointer, flgnamelen);
+    /* [2] flags->name = "000\000\000\000\000\000\000" */
+    /* [2] Write the flag "a" ("flgnamelen" is 1) from "input_line_pointer" to "flags->name"*/
+	  memcpy (flags->name, input_line_pointer, flgnamelen); /* [2] flags->name = "a\000\000\000\000\000\000" */
 
-	  input_line_pointer += flgnamelen;
-	  flags++;
+	  input_line_pointer += flgnamelen; /* [2] input_line_pointer = " fp,[sp,-4]" */
+	  flags++; /* One iteration further in the flags list. */
 	  saw_dot = false;
 	  saw_flg = true;
-	  num_flags++;
+	  num_flags++; /* num_flags = 1 */
 	  break;
 	}
     }
 
  fini:
-  input_line_pointer = old_input_line_pointer;
-  return num_flags;
+  input_line_pointer = old_input_line_pointer; /* [3] input_line_pointer = "" */
+  return num_flags; /* [3] return 1 */
 
  err:
   if (saw_dot)
@@ -1854,19 +1860,19 @@ parse_opcode_flags (const struct arc_opcode *opcode,
    syntax match.  */
 
 static const struct arc_opcode *
-find_opcode_match (const struct arc_opcode_hash_entry *entry,
-		   expressionS *tok,
-		   int *pntok,
-		   struct arc_flags *first_pflag,
-		   int nflgs,
-		   int *pcpumatch,
+find_opcode_match (const struct arc_opcode_hash_entry *entry, /* *entry = {count = 1, opcode = 0x659650} */
+		   expressionS *tok,  /* *tok = {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = 27, X_op = O_register, X_unsigned = 1, X_extrabit = 0, X_md = 1} */
+		   int *pntok, /* *pntok = 5 */
+		   struct arc_flags *first_pflag, /* *first_pflag = {name = "a\000\000\000\000\000\000", flgp = 0x0, insert = 0x0}  */
+		   int nflgs, /* nflgs = 1 */
+		   int *pcpumatch, /* *pcpumatch = 1 */
 		   const char **errmsg)
 {
   const struct arc_opcode *opcode;
   struct arc_opcode_hash_entry_iterator iter;
-  int ntok = *pntok;
+  int ntok = *pntok; /* ntok = 5 */
   int got_cpu_match = 0;
-  expressionS bktok[MAX_INSN_ARGS];
+  expressionS bktok[MAX_INSN_ARGS]; /* TODO LUIS (?)*/
   int bkntok, maxerridx = 0;
   expressionS emptyE;
   const char *tmpmsg = NULL;
@@ -1874,13 +1880,18 @@ find_opcode_match (const struct arc_opcode_hash_entry *entry,
 
   arc_opcode_hash_entry_iterator_init (&iter);
   memset (&emptyE, 0, sizeof (emptyE));
-  memcpy (bktok, tok, MAX_INSN_ARGS * sizeof (*tok));
-  bkntok = ntok;
+  memcpy (bktok, tok, MAX_INSN_ARGS * sizeof (*tok)); /* Write the instruction tokens (*tok) to bktok */
+  bkntok = ntok; /* bkntok = 5 */
 
+  /* Traverse all the instructions defined in the "opcodes/arc-tbl.h" that match the instruction name (ei. "st") */
   for (opcode = arc_opcode_hash_entry_iterator_next (entry, &iter);
        opcode != NULL;
        opcode = arc_opcode_hash_entry_iterator_next (entry, &iter))
     {
+      /* [1] *opcode = {name = 0x537b76 "st", opcode = 402653184, mask = 4177494016, cpu = 3, insn_class = STORE, subclass = NONE, operands = "\bE\004F", '\000' <repeats 12 times>,
+  flags = "/(\024\000"} */
+      /* [2] *opcode = {name = 0x537b76 "st", opcode = 402653184, mask = 4177494017, cpu = 12, insn_class = STORE, subclass = NONE, operands = "\bE\004F", '\000' <repeats 12 times>,
+  flags = "/(\024\000"} */
       const unsigned char *opidx;
       int tokidx = 0;
       const expressionS *t = &emptyE;
@@ -1890,7 +1901,8 @@ find_opcode_match (const struct arc_opcode_hash_entry *entry,
 
       /* Don't match opcodes that don't exist on this
 	 architecture.  */
-      if (!(opcode->cpu & selected_cpu.flags))
+      if (!(opcode->cpu & selected_cpu.flags)) /* [1] The CPU for the current instruction does not match (ei ARC_OPCODE_ARC600 | ARC_OPCODE_ARC700) \
+                                                  [2] The CPU for the current instruction does match */
 	goto match_failed;
 
       if (!check_cpu_feature (opcode->subclass))
@@ -2619,12 +2631,12 @@ autodetect_attributes (const struct arc_opcode *opcode,
 /* Given an opcode name, pre-tockenized set of argumenst and the
    opcode flags, take it all the way through emission.  */
 
-static void
-assemble_tokens (const char *opname,
-		 expressionS *tok,
-		 int ntok,
-		 struct arc_flags *pflags,
-		 int nflgs)
+static void /* st.a fp,[sp,-4] */
+assemble_tokens (const char *opname, /* st */
+		 expressionS *tok, /* {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = 27, X_op = O_register, X_unsigned = 1, X_extrabit = 0, X_md = 1} */
+		 int ntok, /* ntok = 5 */
+		 struct arc_flags *pflags, /* *pflags = {name = "a\000\000\000\000\000\000", flgp = 0x0, insert = 0x0} */
+		 int nflgs) /* nflgs = 1 */
 {
   bool found_something = false;
   const struct arc_opcode_hash_entry *entry;
@@ -2632,7 +2644,9 @@ assemble_tokens (const char *opname,
   const char *errmsg = NULL;
 
   /* Search opcodes.  */
-  entry = arc_find_opcode (opname);
+  entry = arc_find_opcode (opname); /* *entry = {count = 1, opcode = 0x659650} \
+  **(entry->opcode) = {name = 0x537b76 "st", opcode = 402653184, mask = 4177494016, cpu = 3, insn_class = STORE, subclass = NONE, operands = "\bE\004F", '\000' <repeats 12 times>,
+  flags = "/(\024\000"} */
 
   /* Couldn't find opcode conventional way, try special cases.  */
   if (entry == NULL)
@@ -2676,7 +2690,7 @@ assemble_tokens (const char *opname,
 /* The public interface to the instruction assembler.  */
 
 void
-md_assemble (char *str)
+md_assemble (char *str) /* e.i str = "st.a fp,[sp,-4]" */
 {
   char *opname;
   expressionS tok[MAX_INSN_ARGS];
@@ -2685,14 +2699,14 @@ md_assemble (char *str)
   struct arc_flags flags[MAX_INSN_FLGS];
 
   /* Split off the opcode.  */
-  opnamelen = strspn (str, "abcdefghijklmnopqrstuvwxyz_0123456789");
-  opname = xmemdup0 (str, opnamelen);
+  opnamelen = strspn (str, "abcdefghijklmnopqrstuvwxyz_0123456789"); /* len("st") => opnamelen = 2 */
+  opname = xmemdup0 (str, opnamelen); /* opname = "st" */
 
   /* Signalize we are assembling the instructions.  */
   assembling_insn = true;
 
   /* Tokenize the flags.  */
-  if ((nflg = tokenize_flags (str + opnamelen, flags, MAX_INSN_FLGS)) == -1)
+  if ((nflg = tokenize_flags (str + opnamelen, flags, MAX_INSN_FLGS)) == -1) /* nflg = 1 */
     {
       as_bad (_("syntax error"));
       return;
@@ -2700,8 +2714,8 @@ md_assemble (char *str)
 
   /* Scan up to the end of the mnemonic which must end in space or end
      of string.  */
-  str += opnamelen;
-  for (; *str != '\0'; str++)
+  str += opnamelen; /* str = ".a fp,[sp,-4]" */
+  for (; *str != '\0'; str++) /* Remove the ".a" from "str" */
     if (*str == ' ')
       break;
 
@@ -2711,6 +2725,15 @@ md_assemble (char *str)
       as_bad (_("syntax error"));
       return;
     }
+
+    /* ntok = 5 */
+    /* tok = {
+      {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = 27, X_op = O_register, X_unsigned = 1, X_extrabit = 0, X_md = 1},  => register "fp" (27)
+      {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = 0, X_op = O_md32, X_unsigned = 0, X_extrabit = 0, X_md = 0},       => constant "["
+      {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = 28, X_op = O_register, X_unsigned = 1, X_extrabit = 0, X_md = 1},  => register "sp" (28)
+      {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = -4, X_op = O_constant, X_unsigned = 0, X_extrabit = 1, X_md = 1},  => constant "-4"
+      {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = 0, X_op = O_md32, X_unsigned = 0, X_extrabit = 0, X_md = 0},       => constant "]"
+      (...) */
 
   /* Finish it off.  */
   assemble_tokens (opname, tok, ntok, flags, nflg);
@@ -3674,23 +3697,25 @@ md_operand (expressionS *expressionP)
    it is a register and FALSE otherwise.  */
 
 bool
-arc_parse_name (const char *name,
-		struct expressionS *e)
+arc_parse_name (const char *name, /* name = "fp" */
+		struct expressionS *e) /* *e = {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = 0, X_op = O_absent, X_unsigned = 1, X_extrabit = 0, X_md = 1} */
 {
   struct symbol *sym;
 
-  if (!assembling_insn)
+  if (!assembling_insn) /* !true */
     return false;
 
-  if (e->X_op == O_symbol
-      && e->X_md == O_absent)
+  if (e->X_op == O_symbol /* O_absent ("nonexistent expression") == O_symbol ("X_add_symbol + X_add_number") */
+      && e->X_md == O_absent) /* 1 ==  O_absent ("nonexistent expression") */
     return false;
 
-  sym = str_hash_find (arc_reg_hash, name);
+  /* search for existing hash */
+  sym = str_hash_find (arc_reg_hash, name); /* *sym = {flags = {local_symbol = 0, written = 0, resolved = 0, resolving = 0, used_in_reloc = 0, used = 0, volatil = 0, forward_ref = 0, forward_resolved = 0, mri_common = 0,
+    weakrefr = 0, weakrefd = 0, removed = 0, multibyte_warned = 0}, hash = 0, name = 0x66b4e0 "fp", frag = 0x60c800 <zero_address_frag>, bsym = 0x669a40, x = 0x66b518} */
   if (sym)
     {
-      e->X_op = O_register;
-      e->X_add_number = S_GET_VALUE (sym);
+      e->X_op = O_register; /* A register (X_add_number is register number).  */
+      e->X_add_number = S_GET_VALUE (sym); /* e->X_add_number = 27 */
       return true;
     }
 

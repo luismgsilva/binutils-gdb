@@ -764,7 +764,8 @@ operand (expressionS *expressionP, enum expr_mode mode)
   symbolS *symbolP;	/* Points to symbol.  */
   char *name;		/* Points to name of symbol.  */
   segT segment;
-  operatorT op = O_absent; /* For unary operators.  */
+  operatorT op = O_absent; /* For unary operators. \
+														* A nonexistent expression. */
 
   /* All integers are regarded as unsigned unless they are negated.
      This is because the only thing which cares whether a number is
@@ -778,7 +779,9 @@ operand (expressionS *expressionP, enum expr_mode mode)
   /* Digits, assume it is a bignum.  */
 
   SKIP_WHITESPACE ();		/* Leading whitespace is part of operand.  */
-  c = *input_line_pointer++;	/* input_line_pointer -> past char in c.  */
+  c = *input_line_pointer++;	/* input_line_pointer -> past char in c.  \
+															 * input_line_pointer = "fp,[sp,-4]" 			\
+															 * c = "f" */
 
   if (is_end_of_line[(unsigned char) c])
     goto eol;
@@ -1284,7 +1287,7 @@ operand (expressionS *expressionP, enum expr_mode mode)
       break;
 #endif
 
-    default:
+    default: /* c = "f" <- */
 #if defined(md_need_index_operator) || defined(TC_M68K)
     de_fault:
 #endif
@@ -1293,7 +1296,7 @@ operand (expressionS *expressionP, enum expr_mode mode)
 	  /* Identifier begins here.
 	     This is kludged for speed, so code is repeated.  */
 	isname:
-	  -- input_line_pointer;
+	  -- input_line_pointer; /* input_line_pointer = "fp,[sp,-4]" */
 	  c = get_symbol_name (&name);
 
 #ifdef md_operator
@@ -1338,7 +1341,10 @@ operand (expressionS *expressionP, enum expr_mode mode)
 	     specially in certain contexts.  If a name always has a
 	     specific value, it can often be handled by simply
 	     entering it in the symbol table.  */
-	  if (md_parse_name (name, expressionP, mode, &c))
+	  if (md_parse_name (name, expressionP, mode, &c)) /* name = "fp", \
+																											* expressionP = struct expressionS, \
+																											* mode = enum expr_mode, \
+																											* c = "," */
 	    {
 	      restore_line_pointer (c);
 	      break;
@@ -1395,7 +1401,7 @@ operand (expressionS *expressionP, enum expr_mode mode)
      created.  Doing it here saves lines of code.  */
   clean_up_expression (expressionP);
   SKIP_ALL_WHITESPACE ();		/* -> 1st char after operand.  */
-  know (*input_line_pointer != ' ');
+  know (*input_line_pointer != ' '); /* input_line_pointer = ",[sp,-4]" */
 
   /* The PA port needs this information.  */
   if (expressionP->X_add_symbol)
@@ -1409,13 +1415,13 @@ operand (expressionS *expressionP, enum expr_mode mode)
 	= symbol_clone_if_forward_ref (expressionP->X_op_symbol);
     }
 
-  switch (expressionP->X_op)
+  switch (expressionP->X_op) /* O_register */
     {
     default:
       return absolute_section;
     case O_symbol:
       return S_GET_SEGMENT (expressionP->X_add_symbol);
-    case O_register:
+    case O_register: /* <- */
       return reg_section;
     }
 }
@@ -1797,24 +1803,37 @@ subtract_from_result (expressionS *resultP, offsetT amount, int rhs_highbit)
 /* Parse an expression.  */
 
 segT
-expr (int rankarg,		/* Larger # is higher rank.  */
-      expressionS *resultP,	/* Deliver result here.  */
-      enum expr_mode mode	/* Controls behavior.  */)
+expr (int rankarg,		/* Larger # is higher rank.  \
+											 * rankarg = 0  */
+      expressionS *resultP,	/* Deliver result here. \
+														 * result = struct expressionS {
+																	symbolS *X_add_symbol = 0
+																	symbolS *X_op_symbol = 0
+																	offsetT X_add_number = 0
+																	operatorT X_op : 8 = 0
+																	unsigned int X_unsigned : 1 = 0
+																	unsigned int X_extrabit : 1 = 0
+																	unsigned short X_md = 1
+														 } */
+      enum expr_mode mode	/* Controls behavior.  \
+													 * mode = enum expr_mode {expr_evaludate, expr_normal, expr_defer}
+													 */
+			)
 {
-  operator_rankT rank = (operator_rankT) rankarg;
+  operator_rankT rank = (operator_rankT) rankarg; /* rank = 0 '\000' */
   segT retval;
   expressionS right;
   operatorT op_left;
   operatorT op_right;
   int op_chars;
 
-  know (rankarg >= 0);
+  know (rankarg >= 0); /* assert (0 >= 0)*/
 
   /* Save the value of dot for the fixup code.  */
-  if (rank == 0)
+  if (rank == 0) /* (0 == 0) => true */
     {
-      dot_value = frag_now_fix ();
-      dot_frag = frag_now;
+      dot_value = frag_now_fix (); /* dot_value = 0 */
+      dot_frag = frag_now; /* dot_frag = struct frag { ... } */
     }
 
   retval = operand (resultP, mode);
@@ -2414,9 +2433,9 @@ void resolve_register (expressionS *expP)
 {
   symbolS *sym;
   offsetT acc = 0;
-  const expressionS *e = expP;
+  const expressionS *e = expP; /* {X_add_symbol = 0x0, X_op_symbol = 0x0, X_add_number = 27, X_op = O_register, X_unsigned = 1, X_extrabit = 0, X_md = 1} */
 
-  if (expP->X_op != O_symbol)
+  if (expP->X_op != O_symbol) /* (O_register != O_symbol) = true */
     return;
 
   do
@@ -2458,7 +2477,7 @@ get_symbol_name (char ** ilp_return)
 {
   char c;
 
-  * ilp_return = input_line_pointer;
+  * ilp_return = input_line_pointer; /* ilp_return = &input_line_pointer */
   /* We accept FAKE_LABEL_CHAR in a name in case this is being called with a
      constructed string.  */
   if (is_name_beginner (c = *input_line_pointer++)

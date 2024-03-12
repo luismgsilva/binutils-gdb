@@ -386,7 +386,7 @@ frag_align_code (int alignment, int max)
 addressT
 frag_now_fix_octets (void)
 {
-  if (now_seg == absolute_section)
+  if (now_seg == absolute_section) /* TODO LUIS */
     return abs_section_offset;
 
   return ((char *) obstack_next_free (&frchain_now->frch_obstack)
@@ -398,10 +398,10 @@ frag_now_fix (void)
 {
   /* Symbols whose section has SEC_ELF_OCTETS set,
      resolve to octets instead of target bytes.  */
-  if (now_seg->flags & SEC_OCTETS)
+  if (now_seg->flags & SEC_OCTETS) /* (31 & 1073741824) = 0 => false */
     return frag_now_fix_octets ();
   else
-    return frag_now_fix_octets () / OCTETS_PER_BYTE;
+    return frag_now_fix_octets () / OCTETS_PER_BYTE; /* ? / 1 */
 }
 
 void
